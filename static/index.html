@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sleep Quality Predictor - CSV Upload</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9ff;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .upload-area:hover {
+            background: #eef1ff;
+            border-color: #764ba2;
+        }
+        
+        .upload-area.dragover {
+            background: #e3e7ff;
+            border-color: #764ba2;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .results {
+            margin-top: 30px;
+            display: none;
+        }
+        
+        .results.show {
+            display: block;
+        }
+        
+        .result-item {
+            background: #f8f9ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+        }
+        
+        .result-item h3 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        
+        .prediction-good {
+            color: #10b981;
+            font-weight: bold;
+        }
+        
+        .prediction-poor {
+            color: #ef4444;
+            font-weight: bold;
+        }
+        
+        .recommendations {
+            margin-top: 8px;
+            padding-left: 20px;
+        }
+        
+        .recommendations li {
+            color: #555;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .error {
+            background: #fee;
+            border-left: 4px solid #ef4444;
+            padding: 15px;
+            border-radius: 8px;
+            color: #b91c1c;
+            margin-top: 20px;
+        }
+        
+        .info {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            border-radius: 8px;
+            color: #1e40af;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sleep Quality Predictor</h1>
+        <p class="subtitle">Upload a CSV file to get sleep quality predictions for multiple people</p>
+        
+        <div class="info">
+            <strong>CSV Format:</strong> Your CSV should include columns like: age, gender, daily_steps, physical_activity_minutes, screen_time_minutes, stress_level, bmi_category
+        </div>
+        
+        <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-icon">📊</div>
+            <h3>Drop your CSV file here or click to browse</h3>
+            <p style="color: #666; margin-top: 10px;">Supported format: .csv</p>
+            <input type="file" id="fileInput" accept=".csv" onchange="handleFileSelect(event)">
+        </div>
+        
+        <div id="fileName" style="text-align: center; color: #667eea; font-weight: bold; margin-bottom: 10px;"></div>
+        
+        <div style="text-align: center;">
+            <button class="btn" id="uploadBtn" onclick="uploadFile()" disabled>Upload & Predict</button>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px; color: #666;">Processing your CSV...</p>
+        </div>
+        
+        <div class="results" id="results"></div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+        
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const fileName = document.getElementById('fileName');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        
+        // Drag and drop handlers
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].name.endsWith('.csv')) {
+                selectedFile = files[0];
+                fileName.textContent = `Selected: ${files[0].name}`;
+                uploadBtn.disabled = false;
+            }
+        });
+        
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file && file.name.endsWith('.csv')) {
+                selectedFile = file;
+                fileName.textContent = `Selected: ${file.name}`;
+                uploadBtn.disabled = false;
+            } else {
+                alert('Please select a CSV file');
+            }
+        }
+        
+        async function uploadFile() {
+            if (!selectedFile) return;
+            
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            
+            uploadBtn.disabled = true;
+            loading.classList.add('show');
+            results.classList.remove('show');
+            results.innerHTML = '';
+            
+            try {
+                const response = await fetch('/upload-csv', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                loading.classList.remove('show');
+                
+                if (!response.ok) {
+                    results.innerHTML = `<div class="error"><strong>Error:</strong> ${data.error || 'Failed to process CSV'}</div>`;
+                    results.classList.add('show');
+                    uploadBtn.disabled = false;
+                    return;
+                }
+                
+                displayResults(data);
+                uploadBtn.disabled = false;
+                
+            } catch (error) {
+                loading.classList.remove('show');
+                results.innerHTML = `<div class="error"><strong>Error:</strong> ${error.message}</div>`;
+                results.classList.add('show');
+                uploadBtn.disabled = false;
+            }
+        }
+        
+        function displayResults(data) {
+            let html = `<h2 style="margin-bottom: 15px;">Results (${data.total_rows} predictions)</h2>`;
+            
+            data.predictions.forEach(pred => {
+                const predClass = pred.prediction === 'Good' ? 'prediction-good' : 'prediction-poor';
+                const confidence = pred.confidence ? ` (${(pred.confidence * 100).toFixed(1)}% confidence)` : '';
+                
+                html += `
+                    <div class="result-item">
+                        <h3>Row ${pred.row}: <span class="${predClass}">${pred.prediction}</span>${confidence}</h3>
+                        <ul class="recommendations">
+                            ${pred.recommendations.map(rec => `<li>${rec}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            });
+            
+            results.innerHTML = html;
+            results.classList.add('show');
+        }
+    </script>
+</body>
+</html>
