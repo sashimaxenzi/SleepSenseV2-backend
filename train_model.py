@@ -11,53 +11,41 @@ from sklearn.metrics import classification_report, confusion_matrix
 import joblib
 
 # === LOAD DATA ===
-df = pd.read_csv("data/sleep_data.csv")
+df = pd.read_csv("data/sleep_data.csv")  # data set
 
 # === BASIC CLEANING ===
-# Drop rows without Quality of Sleep
-df = df.dropna(subset=["Quality of Sleep"])
+# Drop rows without sleep_quality
+df = df.dropna(subset=["sleep_quality"])
 
 # Binarize target: Good (1) if >=6 else Poor (0)
-df['sleep_quality_cat'] = np.where(df['Quality of Sleep'] >= 6, 1, 0)
+df['sleep_quality_cat'] = np.where(df['sleep_quality'] >= 6, 1, 0)
 
-# Select features based on the actual CSV columns
+# Select features
 feature_cols = [
-    "Age",
-    "Gender",
-    "Daily Steps",
-    "Physical Activity Level",
-    "Stress Level",
-    "BMI Category",
-]
-
-# Keep only relevant columns
-df_clean = df[feature_cols + ["sleep_quality_cat"]].copy()
-
-# Rename columns to match API expected names (lowercase with underscores)
-df_clean.columns = [
     "age",
     "gender",
     "daily_steps",
     "physical_activity_minutes",
+    "screen_time_minutes",
     "stress_level",
     "bmi_category",
-    "sleep_quality_cat"
+    # add other columns as present
 ]
+# Keep rows that have at least one of the feature columns (or handle missing)
+df = df[feature_cols + ["sleep_quality_cat"]]
 
 # Split
-X = df_clean.drop("sleep_quality_cat", axis=1)
-y = df_clean['sleep_quality_cat']
+X = df[feature_cols]
+y = df['sleep_quality_cat']
 
 # Identify numeric and categorical columns
 numeric_cols = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
 categorical_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
 
-print(f"Numeric columns: {numeric_cols}")
-print(f"Categorical columns: {categorical_cols}")
-
 # Preprocessing pipelines
 numeric_transformer = Pipeline(steps=[
     ('imputer', SimpleImputer(strategy='median')),
+    # Decision Trees do not require scaling, but scaler is harmless
     ('scaler', StandardScaler())
 ])
 
@@ -86,7 +74,6 @@ param_grid = {
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, stratify=y, random_state=42)
 
-print(f"\nTraining model with {len(X_train)} samples...")
 grid = GridSearchCV(pipeline, param_grid=param_grid, cv=5, scoring='f1', n_jobs=-1)
 grid.fit(X_train, y_train)
 
@@ -95,12 +82,9 @@ best_model = grid.best_estimator_
 
 # Evaluate
 y_pred = best_model.predict(X_test)
-print("\n=== Model Performance ===")
 print(classification_report(y_test, y_pred))
 print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
 
 # Save model
-import os
-os.makedirs("models", exist_ok=True)
 joblib.dump(best_model, "models/sleep_quality_decision_tree.pkl")
-print("\n✅ Model saved to models/sleep_quality_decision_tree.pkl")
+print("Model saved to models/sleep_quality_decision_tree.pkl")
