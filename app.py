@@ -1,11 +1,21 @@
 # app.py
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import joblib
 import numpy as np
 import pandas as pd
 
 app = FastAPI(title="SleepQuality Recommendation API")
+
+# Add CORS middleware to allow mobile app requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify your app's domain
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Load model (pipeline includes preprocessing)
 model = joblib.load("models/sleep_quality_decision_tree.pkl")
